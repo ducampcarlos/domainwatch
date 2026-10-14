@@ -134,13 +134,19 @@ try {
     await page.locator("#f-kind").selectOption("dns");
     await page.locator("#f-target").fill("localhost");
     await page.locator("#add-form button[type=submit]").click();
-    await page.locator(".monitor .kind", { hasText: "dns" }).waitFor();
-    await page.locator(".monitor", { hasText: /NXDOMAIN|Baseline recorded/ }).waitFor(); // the resolver does not read /etc/hosts, so "localhost" does not exist
-    // One failed check is not yet an outage: the dot must not claim "ok" nor "failing".
-    const dns = page.locator(".monitor", { hasText: "NXDOMAIN" });
-    assert.equal(await dns.locator(".dot.unconfirmed").count(), 1);
-    assert.match(await dns.innerText(), /alert follows if the next one fails too/);
-    assert.doesNotMatch(await dns.innerText(), /ok since/);
+    await page.locator(".monitor .kind", { hasText: "dns" }).waitFor(); // whatever the resolver answers, a DNS monitor is created and checked
+
+    // A port nobody listens on: one failed check is not yet an outage, so the dot must say neither "ok" nor "failing".
+    await page.locator("#toggle-add").click();
+    await page.locator("#f-kind").selectOption("http");
+    await page.locator("#f-target").fill("http://127.0.0.1:1/");
+    await page.locator("#f-name").fill("Closed");
+    await page.locator("#add-form button[type=submit]").click();
+    const closed = page.locator(".monitor", { hasText: "Closed" });
+    await closed.locator(".summary", { hasText: /connection refused/ }).waitFor();
+    assert.equal(await closed.locator(".dot.unconfirmed").count(), 1);
+    assert.match(await closed.innerText(), /alert follows if the next one fails too/);
+    assert.doesNotMatch(await closed.innerText(), /ok since/);
   });
 
   await test("validation errors from the API are shown and nothing is created", async () => {
@@ -150,7 +156,7 @@ try {
     await page.locator("#add-form button[type=submit]").click();
     await page.locator("#add-error").filter({ hasText: /http:\/\/ or https:\/\//i }).waitFor();
     await page.locator("#cancel-add").click();
-    assert.equal(await page.locator(".monitor").count(), 2);
+    assert.equal(await page.locator(".monitor").count(), 3);
   });
 
   await test("an outage raises one alert (after two failures), a webhook, and a recovery", async () => {
@@ -210,7 +216,7 @@ try {
     const auth = { authorization: `Bearer ${TOKEN}` };
     assert.equal((await fetch(`${base}/api/monitors`)).status, 401);
     const metrics = await (await fetch(`${base}/metrics`, { headers: auth })).text();
-    assert.match(metrics, /^domainwatch_up\{monitor="xss|^domainwatch_monitors 2$/m);
+    assert.match(metrics, /^domainwatch_monitors 3$/m);
     const page0 = await fetch(`${base}/`);
     assert.match(page0.headers.get("content-security-policy"), /default-src 'none'/);
     assert.equal(page0.headers.get("access-control-allow-origin"), null);
@@ -226,7 +232,7 @@ try {
     try {
       for (let i = 0; i < 100 && !(await fetch(`${base}/healthz`).then((r) => r.ok, () => false)); i++) await new Promise((r) => setTimeout(r, 50));
       const list = await (await fetch(`${base}/api/monitors`, { headers: { authorization: `Bearer ${TOKEN}` } })).json();
-      assert.equal(list.length, 2);
+      assert.equal(list.length, 3);
     } finally {
       again.kill("SIGKILL");
     }
