@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm audit --audit-level=high
+
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t domainwatch .
+      - name: Run the image and talk to it
+        run: |
+          docker run -d --name dw -p 8787:8787 -e DOMAINWATCH_TOKEN=ci-token-0123456789abcdef domainwatch
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8787/healthz && break; sleep 1; done
+          curl -fs http://127.0.0.1:8787/healthz | grep -q '"status":"ok"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/monitors)" = 401
+          curl -fs -X POST http://127.0.0.1:8787/api/monitors \
+            -H 'authorization: Bearer ci-token-0123456789abcdef' -H 'content-type: application/json' \
+            -d '{"kind":"mail","target":"example.com"}' | grep -q '"kind":"mail"'
+          curl -fs http://127.0.0.1:8787/ | grep -q domainwatch
+          docker exec dw id -u | grep -qv '^0$'

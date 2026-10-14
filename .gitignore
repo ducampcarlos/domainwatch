@@ -1,0 +1,6 @@
+node_modules/
+dist/
+data/
+*.tsbuildinfo
+tests/e2e/out/
+.DS_Store

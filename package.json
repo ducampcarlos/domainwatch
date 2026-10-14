@@ -1,0 +1,54 @@
+{
+  "name": "domainwatch",
+  "version": "0.1.0",
+  "description": "Self-hosted monitor for certificates, uptime, DNS changes and email authentication. Zero runtime dependencies.",
+  "keywords": [
+    "monitoring",
+    "tls",
+    "certificate",
+    "uptime",
+    "dns",
+    "spf",
+    "dmarc",
+    "self-hosted",
+    "prometheus"
+  ],
+  "homepage": "https://github.com/ducampcarlos/domainwatch#readme",
+  "bugs": {
+    "url": "https://github.com/ducampcarlos/domainwatch/issues"
+  },
+  "type": "module",
+  "license": "MIT",
+  "author": "Carlos Ducamp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ducampcarlos/domainwatch.git"
+  },
+  "bin": {
+    "domainwatch": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node tests/e2e/run.mjs",
+    "start": "node dist/index.js serve",
+    "dev": "node --import tsx src/index.ts serve"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "playwright-core": "^1.64.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.4"
+  }
+}
